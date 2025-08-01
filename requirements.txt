@@ -1,0 +1,33 @@
+# Core Dependencies
+flask==2.3.3
+flask-limiter==3.5.0
+flask-cors==4.0.0
+python-dotenv==1.0.0
+requests==2.31.0
+
+# Firebase
+firebase-admin==6.2.0
+
+# Cryptography
+cryptography==41.0.4
+
+# GUI (PyQt5)
+PyQt5==5.15.9
+pyperclip==1.8.2
+
+# Additional Security
+bcrypt==4.0.1
+pyjwt==2.8.0
+
+# Development/Testing
+pytest==7.4.0
+pytest-cov==4.1.0
+black==23.7.0
+flake8==6.0.0
+
+# Production
+gunicorn==21.2.0
+redis==4.6.0
+
+# Optional: For enhanced logging
+coloredlogs==15.0.1

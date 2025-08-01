@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Password Manager{% endblock %}</title>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/lucide-icons@0.171.0/font/lucide.min.css" rel="stylesheet">
+    
+    <!-- Inline theme script for immediate loading -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="XValt Logo" class="logo-img">
+                    <span>XValt</span>
+                </div>
+                {% if session.get('user_id') %}
+                <nav class="nav">
+                    <a href="{{ url_for('vault') }}" class="nav-link">
+                        <i class="fas fa-vault"></i> Vault
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="nav-link logout">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </nav>
+                {% endif %}
+                {% if request.endpoint not in ['login', 'signup'] %}
+                <div class="theme-switcher">
+                    <input type="checkbox" id="theme-toggle" class="theme-toggle-checkbox">
+                    <label for="theme-toggle" class="theme-toggle-label"></label>
+                </div>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- Main content -->
+        <main class="main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category or 'info' }}">
+                                <i class="fas fa-{% if category == 'error' %}exclamation-triangle{% elif category == 'success' %}check-circle{% else %}info-circle{% endif %}"></i>
+                                <span>{{ message }}</span>
+                                <button class="flash-close" onclick="this.parentElement.remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>&copy; 2024 XValt. Your security is our priority.</p>
+                <div class="footer-links">
+                    <a href="#" class="footer-link">Privacy</a>
+                    <a href="#" class="footer-link">Terms</a>
+                    <a href="#" class="footer-link">Help</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-shield-alt fa-spin"></i>
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    {% block scripts %}
+    <script>
+function showNotification(message, type = 'info') {
+    let container = document.querySelector('.flash-messages');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'flash-messages';
+        document.body.appendChild(container);
+    }
+    const msg = document.createElement('div');
+    msg.className = `flash-message flash-${type}`;
+    msg.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(msg);
+    setTimeout(() => msg.remove(), 4000);
+}
+
+function showLoading(show = true) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = show ? 'flex' : 'none';
+    }
+}
+</script>
+
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- Theme Toggle JavaScript -->
+    <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
+    
+    <!-- Additional theme toggle initialization -->
+    <script>
+        // Ensure theme toggle works immediately
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                const themeToggle = document.getElementById('theme-toggle');
+                if (themeToggle) {
+                    const currentTheme = localStorage.getItem('theme') || 'light';
+                    themeToggle.checked = currentTheme === 'dark';
+                    
+                    themeToggle.addEventListener('click', function() {
+                        const newTheme = this.checked ? 'dark' : 'light';
+                        document.documentElement.setAttribute('data-theme', newTheme);
+                        localStorage.setItem('theme', newTheme);
+                        console.log('Theme switched to:', newTheme);
+                    });
+                    
+                    console.log('Theme toggle ready on:', window.location.pathname, 'Current theme:', currentTheme);
+                } else {
+                    console.log('Theme toggle element not found');
+                }
+            }, 100);
+        });
+    </script>
+    
+    <!-- Optional JS (loaded only if needed) -->
+    {% endblock %}
+</body>
+</html>

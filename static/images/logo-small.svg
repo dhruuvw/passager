@@ -1,0 +1,26 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shield Background -->
+  <defs>
+    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#647DEE" />
+      <stop offset="100%" stop-color="#7F53AC" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <!-- Shield Shape -->
+  <path d="M16 2C16 2 6 6 6 8V18C6 23 10 27 16 30C22 27 26 23 26 18V8C26 6 16 2 16 2Z" fill="url(#shieldGradient)" filter="url(#glow)" />
+  
+  <!-- Lock Body -->
+  <rect x="11" y="14" width="10" height="8" rx="1" fill="#E4E8F0" opacity="0.9" />
+  
+  <!-- Lock Shackle -->
+  <path d="M13.5 14V10.5C13.5 8.5 14.5 7 16 7H16C17.5 7 18.5 8.5 18.5 10.5V14" stroke="#E4E8F0" stroke-width="1.5" stroke-linecap="round" />
+  
+  <!-- Keyhole -->
+  <circle cx="16" cy="18" r="1.2" fill="#647DEE" />
+  <rect x="15.6" y="18" width="0.8" height="2" fill="#647DEE" />
+</svg>

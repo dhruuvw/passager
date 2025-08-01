@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}XValt - Enterprise Password Manager{% endblock %}
+
+{% block content %}
+<div class="landing-container">
+    <!-- Modern Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">SECURE YOUR<br>DIGITAL WORLD</h1>
+            <p class="hero-subtitle">Experience enterprise-grade password management with XValt's zero-knowledge architecture and seamless cross-platform sync.</p>
+            
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <div class="stat-number">99.9%</div>
+                    <div class="stat-label">Uptime</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">256</div>
+                    <div class="stat-label">Bit Encryption</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Data Breaches</div>
+                </div>
+            </div>
+            
+            <div class="hero-cta">
+                <a href="{{ url_for('signup') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-user-plus"></i> Start Free Trial
+                </a>
+                <a href="#features" class="btn btn-outline btn-lg">
+                    <i class="fas fa-info-circle"></i> Learn More
+                </a>
+            </div>
+        </div>
+        
+        <div class="hero-visual">
+            <div class="visual-card">
+                <div class="visual-header">
+                    <div class="visual-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <h3>XVault Dashboard</h3>
+                </div>
+                <div class="visual-content">
+                    <div class="password-item">
+                        <div class="site-icon" style="background: var(--accent-color);">G</div>
+                        <div class="site-info">
+                            <div class="site-name">Gmail Account</div>
+                            <div class="site-url">gmail.com</div>
+                        </div>
+                        <div class="strength-indicator strong"></div>
+                    </div>
+                    <div class="password-item">
+                        <div class="site-icon" style="background: var(--accent-blue);">S</div>
+                        <div class="site-info">
+                            <div class="site-name">Slack Workspace</div>
+                            <div class="site-url">company.slack.com</div>
+                        </div>
+                        <div class="strength-indicator medium"></div>
+                    </div>
+                    <div class="password-item">
+                        <div class="site-icon" style="background: var(--accent-warm);">A</div>
+                        <div class="site-info">
+                            <div class="site-name">AWS Console</div>
+                            <div class="site-url">aws.amazon.com</div>
+                        </div>
+                        <div class="strength-indicator strong"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <h2 class="section-title">Why Choose XValt?</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <h3>End-to-End Encryption</h3>
+                <p>Your data is encrypted and decrypted locally. We never see your master password or unencrypted data.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-virus"></i>
+                </div>
+                <h3>Zero-Knowledge Architecture</h3>
+                <p>We designed our systems so we cannot access your sensitive data, even if we wanted to.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-key"></i>
+                </div>
+                <h3>Password Generator</h3>
+                <p>Create strong, unique passwords with our built-in generator to enhance your security posture.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-sync-alt"></i>
+                </div>
+                <h3>Cross-Platform Sync</h3>
+                <p>Access your passwords securely from any device with our web, desktop, and CLI interfaces.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Security Section -->
+    <section class="security">
+        <div class="security-content">
+            <h2 class="section-title">Enterprise-Grade Security</h2>
+            <ul class="security-list">
+                <li><i class="fas fa-check-circle"></i> AES-256 bit encryption</li>
+                <li><i class="fas fa-check-circle"></i> PBKDF2 key derivation</li>
+                <li><i class="fas fa-check-circle"></i> Brute force protection</li>
+                <li><i class="fas fa-check-circle"></i> Account lockout mechanism</li>
+                <li><i class="fas fa-check-circle"></i> Email verification</li>
+                <li><i class="fas fa-check-circle"></i> Rate limiting</li>
+            </ul>
+            <a href="{{ url_for('signup') }}" class="btn btn-primary">
+                <i class="fas fa-user-plus"></i> Create Free Account
+            </a>
+        </div>
+        <div class="security-image">
+            <div class="security-lock">
+                <i class="fas fa-lock"></i>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="testimonials">
+        <h2 class="section-title">Trusted by Professionals</h2>
+        <div class="testimonials-grid">
+            <div class="testimonial-card">
+                <div class="testimonial-content">
+                    <p>"XValt has transformed how our organization manages credentials. The security features are impressive."</p>
+                </div>
+                <div class="testimonial-author">
+                    <div class="author-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="author-info">
+                        <h4>Sarah Johnson</h4>
+                        <p>CTO, TechCorp</p>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <div class="testimonial-content">
+                    <p>"The best password manager I've used. Simple interface with powerful security under the hood."</p>
+                </div>
+                <div class="testimonial-author">
+                    <div class="author-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="author-info">
+                        <h4>Michael Chen</h4>
+                        <p>Security Analyst</p>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <div class="testimonial-content">
+                    <p>"We've deployed XValt across our entire company. The admin controls and security features are excellent."</p>
+                </div>
+                <div class="testimonial-author">
+                    <div class="author-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="author-info">
+                        <h4>Emily Rodriguez</h4>
+                        <p>IT Director, Global Finance</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="cta-content">
+            <h2>Ready to secure your passwords?</h2>
+            <p>Join thousands of users who trust XValt with their digital security</p>
+            <div class="cta-buttons">
+                <a href="{{ url_for('signup') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-user-plus"></i> Sign Up Free
+                </a>
+                <a href="{{ url_for('login') }}" class="btn btn-secondary btn-lg">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

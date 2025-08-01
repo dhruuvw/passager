@@ -1,0 +1,17 @@
+.env
+# macOS system file
+.DS_Store
+
+# Python virtual environments
+venv/
+.venv/
+
+# Python cache files
+__pycache__/
+
+# Log files
+*.log
+
+# Keys and secrets
+*.key
+firebase_config.json

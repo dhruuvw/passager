@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account - XValt{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-icon"><img src="{{ url_for('static', filename='images/logo.png') }}" alt="XValt Logo" class="auth-logo"></div>
+            <h1>Create Account</h1>
+            <p>Join XValt to secure your digital life</p>
+        </div>
+
+        <form id="signupForm" class="auth-form">
+            <div class="form-group">
+                <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
+                <input type="email" id="email" required placeholder="Enter your email address" autocomplete="email">
+                <small class="form-help">We'll send a verification email to this address</small>
+            </div>
+
+            <div class="form-group">
+                <label for="password"><i class="fas fa-key"></i> Login Password</label>
+                <div class="password-input">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password"
+                        required 
+                        placeholder="Create a strong login password" 
+                        autocomplete="new-password"
+                    >
+                    <button type="button" class="password-toggle" onclick="togglePassword('password')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+
+                <div class="password-strength" id="passwordStrength">
+                    <div class="strength-meter"><div class="strength-bar" id="strengthBar"></div></div>
+                    <span class="strength-text" id="strengthText">Enter password</span>
+                </div>
+
+                <!-- ✅ Inline error message -->
+                <div id="passwordError" class="inline-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword"><i class="fas fa-key"></i> Confirm Login Password</label>
+                <div class="password-input">
+                    <input type="password" id="confirmPassword" required placeholder="Confirm login password" autocomplete="new-password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="masterPassword"><i class="fas fa-shield-alt"></i> Master Password</label>
+                <div class="password-input">
+                    <input type="password" id="masterPassword" required placeholder="Create a master password" autocomplete="off">
+                    <button type="button" class="password-toggle" onclick="togglePassword('masterPassword')"><i class="fas fa-eye"></i></button>
+                </div>
+                <small class="form-help">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Important:</strong> This encrypts your vault. We cannot recover it.
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmMasterPassword"><i class="fas fa-shield-alt"></i> Confirm Master Password</label>
+                <div class="password-input">
+                    <input type="password" id="confirmMasterPassword" required placeholder="Confirm your master password" autocomplete="off">
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirmMasterPassword')"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="agreeTerms" required>
+                    <span class="checkmark"></span>
+                    I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="{{ url_for('login') }}" class="auth-link">Sign In</a></p>
+        </div>
+    </div>
+
+    <div class="security-features">
+        <h3><i class="fas fa-info-circle"></i> Security Tips</h3>
+        <ul>
+            <li><i class="fas fa-lock"></i> Never reuse your master password</li>
+            <li><i class="fas fa-eye-slash"></i> Use a strong, unique login password</li>
+            <li><i class="fas fa-user-shield"></i> Enable 2FA where possible</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+console.log("✅ signup.js loaded");
+
+function showNotification(message, type = 'info') {
+    let container = document.querySelector('.flash-messages');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'flash-messages';
+        document.body.appendChild(container);
+    }
+    const msg = document.createElement('div');
+    msg.className = `flash-message flash-${type}`;
+    msg.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(msg);
+    setTimeout(() => msg.remove(), 4000);
+}
+
+function showLoading(show = true) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.style.display = show ? 'flex' : 'none';
+}
+
+function togglePassword(fieldId) {
+    const field = document.getElementById(fieldId);
+    const icon = field.nextElementSibling.querySelector('i');
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.className = 'fas fa-eye-slash';
+    } else {
+        field.type = 'password';
+        icon.className = 'fas fa-eye';
+    }
+}
+
+document.getElementById('signupForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const masterPassword = document.getElementById('masterPassword').value;
+    const confirmMasterPassword = document.getElementById('confirmMasterPassword').value;
+    const agreeTerms = document.getElementById('agreeTerms').checked;
+    const passwordErrorEl = document.getElementById('passwordError');
+
+    const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+    if (!strongPasswordPattern.test(password)) {
+        passwordErrorEl.textContent = "Password must be at least 8 characters and include uppercase, lowercase, digit, and special character.";
+        passwordErrorEl.classList.add('visible');
+        return;
+    } else {
+        passwordErrorEl.textContent = "";
+        passwordErrorEl.classList.remove('visible');
+    }
+
+    if (!email || !password || !confirmPassword || !masterPassword || !confirmMasterPassword) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+    if (password !== confirmPassword) {
+        showNotification('Login passwords do not match', 'error');
+        return;
+    }
+    if (masterPassword !== confirmMasterPassword) {
+        showNotification('Master passwords do not match', 'error');
+        return;
+    }
+    if (!agreeTerms) {
+        showNotification('You must agree to the Terms of Service', 'error');
+        return;
+    }
+    if (password.length < 8 || masterPassword.length < 8) {
+        showNotification('Passwords must be at least 8 characters long', 'error');
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        const response = await fetch('/api/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            sessionStorage.setItem('masterPassword', masterPassword);
+            showNotification('Account created! Check your email to verify.', 'success');
+            showLoading(true); // Show loading overlay before redirect
+            setTimeout(() => window.location.href = '/login', 2000);
+        } else {
+            showNotification(data.message || 'Signup failed', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showNotification('Network error. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+});
+
+// Password Strength Feedback
+document.getElementById('password').addEventListener('input', function() {
+    const pw = this.value;
+    const bar = document.getElementById('strengthBar');
+    const text = document.getElementById('strengthText');
+
+    let strength = 0;
+    if (pw.length >= 8) strength++;
+    if (/[A-Z]/.test(pw)) strength++;
+    if (/[a-z]/.test(pw)) strength++;
+    if (/\d/.test(pw)) strength++;
+    if (/[^A-Za-z0-9]/.test(pw)) strength++;
+
+    const percent = (strength / 5) * 100;
+    bar.style.width = percent + '%';
+
+    if (strength <= 2) {
+        bar.className = 'strength-bar weak';
+        text.textContent = 'Weak';
+    } else if (strength === 3) {
+        bar.className = 'strength-bar fair';
+        text.textContent = 'Fair';
+    } else if (strength === 4) {
+        bar.className = 'strength-bar good';
+        text.textContent = 'Good';
+    } else {
+        bar.className = 'strength-bar strong';
+        text.textContent = 'Strong';
+    }
+});
+</script>
+{% endblock %}

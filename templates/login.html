@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Login - XValt{% endblock %}
+
+{% block content %}
+<style>
+/* ✅ Inline Error Styling */
+.inline-error {
+    color: #e74c3c;
+    font-size: 0.9rem;
+    margin-top: 6px;
+    padding-left: 2px;
+    display: none;
+}
+.inline-error.visible {
+    display: block;
+}
+</style>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-icon">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="XValt Logo" class="auth-logo">
+            </div>
+            <h1>Welcome Back</h1>
+            <p>Sign in to access your XValt</p>
+        </div>
+
+        <form id="loginForm" class="auth-form">
+            <div class="form-group">
+                <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
+                <input type="email" id="email" name="email" required placeholder="Enter your email" autocomplete="email">
+                <div id="emailError" class="inline-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password"><i class="fas fa-key"></i> Login Password</label>
+                <div class="password-input">
+                    <input type="password" id="password" name="password" required placeholder="Enter your login password" autocomplete="current-password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('password')"><i class="fas fa-eye"></i></button>
+                </div>
+                <div id="passwordError" class="inline-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="masterPassword"><i class="fas fa-shield-alt"></i> Master Password</label>
+                <div class="password-input">
+                    <input type="password" id="masterPassword" name="masterPassword" required placeholder="Enter your master password" autocomplete="off">
+                    <button type="button" class="password-toggle" onclick="togglePassword('masterPassword')"><i class="fas fa-eye"></i></button>
+                </div>
+                <small class="form-help">Master password is used to encrypt your stored passwords</small>
+                <div id="masterPasswordError" class="inline-error"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </button>
+        </form>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <div class="auth-actions">
+            <button id="resendVerificationBtn" class="btn btn-secondary btn-full">
+                <i class="fas fa-envelope-open"></i> Resend Verification Email
+            </button>
+        </div>
+
+        <div class="auth-footer">
+            <p>Don't have an account? <a href="{{ url_for('signup') }}" class="auth-link">Create Account</a></p>
+        </div>
+    </div>
+
+    <div class="security-features">
+        <h3><i class="fas fa-shield-check"></i> Security Features</h3>
+        <ul>
+            <li><i class="fas fa-lock"></i> End-to-End Encryption</li>
+            <li><i class="fas fa-eye-slash"></i> Zero-Knowledge Architecture</li>
+            <li><i class="fas fa-clock"></i> Auto-Lock Session</li>
+            <li><i class="fas fa-user-shield"></i> Two-Factor Security</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showNotification(message, type = 'info') {
+    let container = document.querySelector('.flash-messages');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'flash-messages';
+        document.body.appendChild(container);
+    }
+    const msg = document.createElement('div');
+    msg.className = `flash-message flash-${type}`;
+    msg.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(msg);
+    setTimeout(() => msg.remove(), 4000);
+}
+
+function showLoading(show = true) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.style.display = show ? 'flex' : 'none';
+}
+
+function togglePassword(fieldId) {
+    const field = document.getElementById(fieldId);
+    const icon = field.nextElementSibling.querySelector('i');
+    field.type = field.type === 'password' ? 'text' : 'password';
+    icon.className = field.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+}
+
+function showInlineError(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message;
+    el.classList.add('visible');
+}
+function clearInlineError(id) {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    el.classList.remove('visible');
+}
+
+document.getElementById('loginForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const masterPassword = document.getElementById('masterPassword').value;
+
+    let hasError = false;
+
+    if (!email) {
+        showInlineError('emailError', 'Email is required');
+        hasError = true;
+    } else {
+        clearInlineError('emailError');
+    }
+
+    if (!password) {
+        showInlineError('passwordError', 'Password is required');
+        hasError = true;
+    } else {
+        clearInlineError('passwordError');
+    }
+
+    if (!masterPassword) {
+        showInlineError('masterPasswordError', 'Master password is required');
+        hasError = true;
+    } else {
+        clearInlineError('masterPasswordError');
+    }
+
+    if (hasError) return;
+
+    showLoading(true);
+
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('Debug: Setting masterPassword in sessionStorage');
+            sessionStorage.setItem('masterPassword', masterPassword);
+            console.log('Debug: masterPassword stored, length:', masterPassword.length);
+            showNotification('Login successful! Redirecting...', 'success');
+            setTimeout(() => window.location.href = '/vault', 1000);
+        } else {
+            if (data && data.message && data.message.toLowerCase().includes('verify')) {
+                showNotification('Please verify your email before logging in. Check your inbox.', 'error');
+            } else if (data && data.message && data.message.toLowerCase().includes('invalid')) {
+                showNotification('Invalid email or password', 'error');
+            } else {
+                showNotification(data.message || 'Login failed', 'error');
+            }
+        }
+    } catch (err) {
+        showNotification('Network error. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+});
+
+document.getElementById('resendVerificationBtn')?.addEventListener('click', async function() {
+    const email = document.getElementById('email').value.trim();
+
+    if (!email) {
+        showNotification('Please enter your email address first', 'error');
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        const response = await fetch('/api/resend_verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showNotification(data.message, 'success');
+        } else {
+            showNotification(data.message || 'Failed to send verification email', 'error');
+        }
+    } catch (error) {
+        showNotification('Network error. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+});
+</script>
+{% endblock %}
