@@ -22,30 +22,120 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="XValt Logo" class="logo-img">
-                    <span>XValt</span>
-                </div>
-                {% if session.get('user_id') %}
-                <nav class="nav">
-                    <a href="{{ url_for('vault') }}" class="nav-link">
-                        <i class="fas fa-vault"></i> Vault
-                    </a>
-                    <a href="{{ url_for('logout') }}" class="nav-link logout">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </a>
-                </nav>
-                {% endif %}
-                {% if request.endpoint not in ['login', 'signup'] %}
-                <div class="theme-switcher">
-                    <input type="checkbox" id="theme-toggle" class="theme-toggle-checkbox">
-                    <label for="theme-toggle" class="theme-toggle-label"></label>
-                </div>
-                {% endif %}
+        <!-- Modern Integrated Navbar -->
+        <header class="modern-navbar">
+          <nav class="navbar-container">
+            <!-- Logo Section -->
+            <div class="navbar-logo">
+              <a href="{{ url_for('index') if not session.get('user_id') else url_for('vault') }}" class="logo-link">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="XValt Logo" class="logo-icon">
+                <span class="logo-text">XValt</span>
+              </a>
             </div>
+
+            <!-- Navigation Links -->
+            <div class="navbar-nav">
+              {% if session.get('user_id') %}
+                <!-- Authenticated User Menu -->
+                <a href="{{ url_for('vault') }}" class="nav-link {% if request.endpoint == 'vault' %}active{% endif %}">
+                  <i class="fas fa-vault"></i>
+                  <span>Vault</span>
+                </a>
+                <a href="#" class="nav-link" onclick="openGeneratorModal()" title="Password Generator">
+                  <i class="fas fa-random"></i>
+                  <span>Generator</span>
+                </a>
+                <a href="#" class="nav-link">
+                  <i class="fas fa-cog"></i>
+                  <span>Settings</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-btn">
+                  <i class="fas fa-sign-out-alt"></i>
+                  <span>Logout</span>
+                </a>
+              {% else %}
+                <!-- Guest User Menu -->
+                {% if request.endpoint == 'index' %}
+                  <a href="#features" class="nav-link smooth-scroll">
+                    <span>Features</span>
+                  </a>
+                  <a href="#security" class="nav-link smooth-scroll">
+                    <span>Security</span>
+                  </a>
+                  <a href="#pricing" class="nav-link smooth-scroll">
+                    <span>Pricing</span>
+                  </a>
+                {% endif %}
+                <a href="{{ url_for('login') }}" class="nav-link">
+                  <span>Login</span>
+                </a>
+                <a href="{{ url_for('signup') }}" class="nav-cta">
+                  <span>Get Started</span>
+                </a>
+              {% endif %}
+            </div>
+
+            <!-- Theme Toggle & Mobile Menu -->
+            <div class="navbar-actions">
+              {% if request.endpoint not in ['login', 'signup'] %}
+                <div class="theme-toggle-wrapper">
+                  <input type="checkbox" id="theme-toggle" class="theme-toggle-checkbox">
+                  <label for="theme-toggle" class="theme-toggle">
+                    <div class="theme-toggle__handler">
+                      <div class="crater crater--1"></div>
+                      <div class="crater crater--2"></div>
+                      <div class="crater crater--3"></div>
+                    </div>
+                    <div class="star star--1"></div>
+                    <div class="star star--2"></div>
+                    <div class="star star--3"></div>
+                    <div class="star star--4"></div>
+                    <div class="star star--5"></div>
+                    <div class="star star--6"></div>
+                  </label>
+                </div>
+              {% endif %}
+              
+              <!-- Mobile Menu Button -->
+              <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+              </button>
+            </div>
+          </nav>
+
+          <!-- Mobile Menu Overlay -->
+          <div class="mobile-menu-overlay" id="mobileMenuOverlay">
+            <div class="mobile-menu-content">
+              {% if session.get('user_id') %}
+                <a href="{{ url_for('vault') }}" class="mobile-nav-link">
+                  <i class="fas fa-vault"></i>
+                  <span>Vault</span>
+                </a>
+                <a href="#" class="mobile-nav-link" onclick="openGeneratorModal()">
+                  <i class="fas fa-random"></i>
+                  <span>Generator</span>
+                </a>
+                <a href="#" class="mobile-nav-link">
+                  <i class="fas fa-cog"></i>
+                  <span>Settings</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="mobile-nav-link logout">
+                  <i class="fas fa-sign-out-alt"></i>
+                  <span>Logout</span>
+                </a>
+              {% else %}
+                {% if request.endpoint == 'index' %}
+                  <a href="#features" class="mobile-nav-link smooth-scroll">Features</a>
+                  <a href="#security" class="mobile-nav-link smooth-scroll">Security</a>
+                  <a href="#pricing" class="mobile-nav-link smooth-scroll">Pricing</a>
+                {% endif %}
+                <a href="{{ url_for('login') }}" class="mobile-nav-link">Login</a>
+                <a href="{{ url_for('signup') }}" class="mobile-nav-cta">Get Started</a>
+              {% endif %}
+            </div>
+          </div>
         </header>
 
         <!-- Main content -->
@@ -124,10 +214,38 @@ function showLoading(show = true) {
     <!-- Theme Toggle JavaScript -->
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     
-    <!-- Additional theme toggle initialization -->
+    <!-- Mobile menu and theme toggle functionality -->
     <script>
-        // Ensure theme toggle works immediately
         document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu functionality
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+            
+            if (mobileMenuBtn && mobileMenuOverlay) {
+                mobileMenuBtn.addEventListener('click', function() {
+                    mobileMenuBtn.classList.toggle('active');
+                    mobileMenuOverlay.classList.toggle('active');
+                });
+                
+                // Close mobile menu when clicking overlay
+                mobileMenuOverlay.addEventListener('click', function(e) {
+                    if (e.target === mobileMenuOverlay) {
+                        mobileMenuBtn.classList.remove('active');
+                        mobileMenuOverlay.classList.remove('active');
+                    }
+                });
+                
+                // Close mobile menu when clicking nav links
+                const mobileNavLinks = mobileMenuOverlay.querySelectorAll('.mobile-nav-link, .mobile-nav-cta');
+                mobileNavLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        mobileMenuBtn.classList.remove('active');
+                        mobileMenuOverlay.classList.remove('active');
+                    });
+                });
+            }
+            
+            // Theme toggle functionality
             setTimeout(function() {
                 const themeToggle = document.getElementById('theme-toggle');
                 if (themeToggle) {
@@ -146,7 +264,31 @@ function showLoading(show = true) {
                     console.log('Theme toggle element not found');
                 }
             }, 100);
+            
+            // Smooth scrolling for nav links
+            const smoothScrollLinks = document.querySelectorAll('.smooth-scroll');
+            smoothScrollLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
         });
+        
+        // Scroll to top function for logo
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
     </script>
     
     <!-- Optional JS (loaded only if needed) -->

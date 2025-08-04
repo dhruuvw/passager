@@ -4,34 +4,6 @@
 
 {% block content %}
 <div class="vault-container">
-    <!-- Sidebar Navigation -->
-    <div class="vault-sidebar">
-        <div class="sidebar-brand">
-            <i class="fas fa-shield-alt"></i>
-            <span>XValt</span>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="#" class="nav-item active">
-                <i class="fas fa-key"></i>
-                <span>All Passwords</span>
-            </a>
-            <a href="#" class="nav-item" onclick="openGeneratorModal()">
-                <i class="fas fa-random"></i>
-                <span>Password Generator</span>
-            </a>
-            <a href="#" class="nav-item">
-                <i class="fas fa-cog"></i>
-                <span>Settings</span>
-            </a>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="{{ url_for('logout') }}" class="logout-btn">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Logout</span>
-            </a>
-        </div>
-    </div>
-    
     <!-- Main Content -->
     <div class="vault-main">
         <div class="vault-header">
@@ -110,7 +82,7 @@
                     <div class="password-input-group">
                         <input type="password" id="password" name="password" class="form-control" required>
                         <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('password')">
-                            <i class="icon-eye" id="password-eye"></i>
+                            <i class="fas fa-eye" id="password-eye"></i>
                         </button>
                         <button type="button" class="btn btn-secondary" onclick="generatePasswordForForm()">Generate</button>
                     </div>
@@ -193,7 +165,7 @@
                     <div class="password-display">
                         <input type="password" id="detail-password" class="form-control" readonly>
                         <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('detail-password')">
-                            <i class="icon-eye" id="detail-password-eye"></i>
+                            <i class="fas fa-eye" id="detail-password-eye"></i>
                         </button>
                         <button type="button" class="btn btn-secondary" onclick="copyDetailPassword()">Copy</button>
                     </div>

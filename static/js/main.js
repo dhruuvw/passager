@@ -1,3 +1,17 @@
+// Logo click functionality
+function scrollToTop() {
+    if (window.location.pathname === '/' || window.location.pathname.endsWith('index')) {
+        // If on landing page, scroll to top
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    } else {
+        // If on other pages, navigate to landing page
+        window.location.href = '/';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Intersection Observer for fade-in animations
     const observerOptions = {
