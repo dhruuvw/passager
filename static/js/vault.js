@@ -172,15 +172,24 @@ function displayPasswords(passwordList) {
                         </div>
                     </td>
                     <td>${username || 'No username'}</td>
-                    <td><span style="font-family: monospace; letter-spacing: 2px;">${maskedPassword}</span></td>
+                    <td>
+                        <div class="password-cell">
+                            <span id="password-display-${platform.replace(/[^a-zA-Z0-9]/g, '_')}" class="password-display">${maskedPassword}</span>
+                            <div class="password-actions">
+                                <button class="btn-icon eye-btn" onclick="togglePasswordView('${platform.replace(/'/g, "\\'")}', '${password.replace(/'/g, "\\'")}')" title="Show/Hide Password">
+                                    <i class="fas fa-eye" id="eye-${platform.replace(/[^a-zA-Z0-9]/g, '_')}"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </td>
                     <td class="actions">
-                        <button class="btn-icon" onclick="copyToClipboard('${password.replace(/'/g, "\\'")}')" title="Copy Password">
+                        <button class="btn-icon copy-btn" onclick="copyToClipboard('${password.replace(/'/g, "\\'")}')" title="Copy Password">
                             <i class="fas fa-copy"></i>
                         </button>
-                        <button class="btn-icon" onclick="editPassword('${platform.replace(/'/g, "\\'")}')" title="Edit">
+                        <button class="btn-icon edit-btn" onclick="editPassword('${platform.replace(/'/g, "\\'")}')" title="Edit">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn-icon" onclick="deletePasswordPrompt('${platform.replace(/'/g, "\\'")}')" title="Delete">
+                        <button class="btn-icon delete-btn" onclick="deletePasswordPrompt('${platform.replace(/'/g, "\\'")}')" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -315,11 +324,17 @@ function closeConfirmDeleteModal() {
 }
 
 function showLoading() {
-    document.getElementById('loadingOverlay').style.display = 'flex';
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
 }
 
 function hideLoading() {
-    document.getElementById('loadingOverlay').style.display = 'none';
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
 }
 
 function showNotification(message, type = 'info') {
@@ -409,6 +424,26 @@ function togglePasswordVisibility(fieldId) {
             eyeIcon.className = 'fas fa-eye-slash';
         } else {
             field.type = 'password';
+            eyeIcon.className = 'fas fa-eye';
+        }
+    }
+}
+
+// Toggle password visibility in table rows
+function togglePasswordView(platform, actualPassword) {
+    const sanitizedPlatform = platform.replace(/[^a-zA-Z0-9]/g, '_');
+    const passwordDisplay = document.getElementById(`password-display-${sanitizedPlatform}`);
+    const eyeIcon = document.getElementById(`eye-${sanitizedPlatform}`);
+    
+    if (passwordDisplay && eyeIcon) {
+        if (eyeIcon.classList.contains('fa-eye')) {
+            // Show password
+            passwordDisplay.textContent = actualPassword;
+            eyeIcon.className = 'fas fa-eye-slash';
+        } else {
+            // Hide password
+            const maskedPassword = '•'.repeat(Math.min(actualPassword.length, 12));
+            passwordDisplay.textContent = maskedPassword;
             eyeIcon.className = 'fas fa-eye';
         }
     }
