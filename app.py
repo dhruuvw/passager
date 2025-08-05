@@ -116,6 +116,11 @@ def logout():
     flash('You have been logged out successfully', 'info')
     return redirect(url_for('login'))
 
+@app.route('/password-analyzer')
+def password_analyzer():
+    """Password analyzer page"""
+    return render_template('password-analyzer.html')
+
 # ========== API ROUTES ==========
 
 @app.route('/api/signup', methods=['POST'])

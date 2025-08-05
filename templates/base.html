@@ -66,6 +66,9 @@
                     <span>Pricing</span>
                   </a>
                 {% endif %}
+                <a href="{{ url_for('password_analyzer') }}" class="nav-link">
+                  <span>PAnalyzer</span>
+                </a>
                 <a href="{{ url_for('login') }}" class="nav-link">
                   <span>Login</span>
                 </a>
@@ -131,6 +134,7 @@
                   <a href="#security" class="mobile-nav-link smooth-scroll">Security</a>
                   <a href="#pricing" class="mobile-nav-link smooth-scroll">Pricing</a>
                 {% endif %}
+                <a href="{{ url_for('password_analyzer') }}" class="mobile-nav-link">PAnalyzer</a>
                 <a href="{{ url_for('login') }}" class="mobile-nav-link">Login</a>
                 <a href="{{ url_for('signup') }}" class="mobile-nav-cta">Get Started</a>
               {% endif %}
