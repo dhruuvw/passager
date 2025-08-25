@@ -10,7 +10,9 @@ import secrets
 
 # Import our modules
 import auth
-from db import save_password, fetch_passwords_for_gui, delete_password
+from db import (save_password, fetch_passwords_for_gui, delete_password, 
+                get_vaults, create_vault, delete_vault, get_vault_passwords,
+                migrate_existing_passwords, get_or_create_default_vault)
 from crypto_utils import generate_password
 
 app = Flask(__name__)
@@ -225,11 +227,16 @@ def save_password_api():
     username = data.get("username").strip()
     password = data.get("password")
     master_password = data.get("master_password")
+    vault_id = data.get("vault_id", None)  # Allow specifying vault_id
     client_ip = request.remote_addr
 
     try:
-        save_password(user_id, platform, username, password, master_password)
-        log_security_event("PASSWORD_SAVED", f"user_id:{user_id}", client_ip, f"Platform: {platform}")
+        # Get default vault if not specified
+        if not vault_id:
+            vault_id = get_or_create_default_vault(user_id)
+            
+        save_password(user_id, platform, username, password, master_password, vault_id)
+        log_security_event("PASSWORD_SAVED", f"user_id:{user_id}", client_ip, f"Vault: {vault_id}, Platform: {platform}")
         return jsonify({"status": "success", "message": f"Password saved for {platform}"}), 200
     except Exception as e:
         logging.error(f"Save password error for user {user_id}: {str(e)}")
@@ -308,6 +315,133 @@ def health_check():
 @app.route('/api/ping', methods=['GET'])
 def ping():
     return jsonify({"status": "pong", "timestamp": datetime.now().isoformat()}), 200
+
+# ========== VAULT API ROUTES ==========
+
+@app.route('/api/vaults', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_vaults_api():
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+        
+    user_id = session['user_id']
+    client_ip = request.remote_addr
+
+    try:
+        # Auto-migrate existing passwords on first access
+        migrate_existing_passwords(user_id)
+        
+        vaults = get_vaults(user_id)
+        log_security_event("VAULTS_FETCHED", f"user_id:{user_id}", client_ip, f"Count: {len(vaults)}")
+        return jsonify({"status": "success", "vaults": vaults}), 200
+    except Exception as e:
+        logging.error(f"Get vaults error for user {user_id}: {str(e)}")
+        return jsonify({"status": "error", "message": "Failed to fetch vaults"}), 500
+
+@app.route('/api/vaults', methods=['POST'])
+@limiter.limit("5 per minute")
+@validate_request_data(['name'])
+def create_vault_api():
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+        
+    data = request.get_json()
+    user_id = session['user_id']
+    name = data.get("name").strip()
+    description = data.get("description", "").strip()
+    client_ip = request.remote_addr
+
+    try:
+        vault_id = create_vault(user_id, name, description)
+        log_security_event("VAULT_CREATED", f"user_id:{user_id}", client_ip, f"Name: {name}")
+        return jsonify({"status": "success", "vault_id": vault_id, "message": f"Vault '{name}' created successfully"}), 201
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        logging.error(f"Create vault error for user {user_id}: {str(e)}")
+        return jsonify({"status": "error", "message": "Failed to create vault"}), 500
+
+@app.route('/api/vaults/<vault_id>', methods=['DELETE'])
+@limiter.limit("10 per minute")
+def delete_vault_api(vault_id):
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+        
+    user_id = session['user_id']
+    client_ip = request.remote_addr
+
+    try:
+        delete_vault(user_id, vault_id)
+        log_security_event("VAULT_DELETED", f"user_id:{user_id}", client_ip, f"Vault ID: {vault_id}")
+        return jsonify({"status": "success", "message": "Vault deleted successfully"}), 200
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": str(ve)}), 400
+    except Exception as e:
+        logging.error(f"Delete vault error for user {user_id}: {str(e)}")
+        return jsonify({"status": "error", "message": "Failed to delete vault"}), 500
+
+@app.route('/api/vaults/<vault_id>/passwords', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_vault_passwords_api(vault_id):
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+        
+    user_id = session['user_id']
+    master_password = request.args.get('master_password')
+    client_ip = request.remote_addr
+    
+    if not master_password:
+        return jsonify({"status": "error", "message": "Master password required"}), 400
+
+    try:
+        passwords = get_vault_passwords(user_id, vault_id, master_password)
+        log_security_event("VAULT_PASSWORDS_FETCHED", f"user_id:{user_id}", client_ip, f"Vault: {vault_id}, Count: {len(passwords)}")
+        return jsonify({"status": "success", "passwords": passwords}), 200
+    except Exception as e:
+        logging.error(f"Get vault passwords error for user {user_id}: {str(e)}")
+        return jsonify({"status": "error", "message": "Failed to fetch vault passwords"}), 500
+
+@app.route('/api/vaults/<vault_id>/passwords', methods=['POST'])
+@limiter.limit("10 per minute")
+@validate_request_data(['platform', 'username', 'password', 'master_password'])
+def save_vault_password_api(vault_id):
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+        
+    data = request.get_json()
+    user_id = session['user_id']
+    platform = data.get("platform").strip().lower()
+    username = data.get("username").strip()
+    password = data.get("password")
+    master_password = data.get("master_password")
+    url = data.get("url", "").strip()
+    notes = data.get("notes", "").strip()
+    client_ip = request.remote_addr
+
+    try:
+        save_password(user_id, platform, username, password, master_password, vault_id, url, notes)
+        log_security_event("VAULT_PASSWORD_SAVED", f"user_id:{user_id}", client_ip, f"Vault: {vault_id}, Platform: {platform}")
+        return jsonify({"status": "success", "message": f"Password saved for {platform}"}), 200
+    except Exception as e:
+        logging.error(f"Save vault password error for user {user_id}: {str(e)}")
+        return jsonify({"status": "error", "message": "Failed to save password"}), 500
+
+@app.route('/api/vaults/<vault_id>/passwords/<platform>', methods=['DELETE'])
+@limiter.limit("10 per minute")
+def delete_vault_password_api(vault_id, platform):
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+        
+    user_id = session['user_id']
+    client_ip = request.remote_addr
+
+    try:
+        delete_password(user_id, platform, vault_id)
+        log_security_event("VAULT_PASSWORD_DELETED", f"user_id:{user_id}", client_ip, f"Vault: {vault_id}, Platform: {platform}")
+        return jsonify({"status": "success", "message": f"Password deleted for {platform}"}), 200
+    except Exception as e:
+        logging.error(f"Delete vault password error for user {user_id}: {str(e)}")
+        return jsonify({"status": "error", "message": "Failed to delete password"}), 500
 
 if __name__ == '__main__':
     # Security headers

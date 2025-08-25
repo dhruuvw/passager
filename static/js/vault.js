@@ -1,195 +1,401 @@
-// PATCHED vault.js - Flask-compatible version
+// ===== MULTI-VAULT PASSWORD MANAGER =====
+// Global State
+let masterPassword = '';
+let currentVaultId = null;
+let allVaults = [];
+let currentVaultPasswords = [];
+let currentPasswordId = null;
 
-// Global state
-let passwords = [];
-let currentEditing = null;
-let currentPlatform = null;
-
-document.addEventListener('DOMContentLoaded', () => {
-    loadPasswords();
-    initializeListeners();
-    initializeSearch();
+// ===== INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', function() {
+    initializeVaultInterface();
 });
 
-// ------------------- Core Functionalities -------------------
+function initializeVaultInterface() {
+    showMasterPasswordModal();
+    initializeEventListeners();
+    initializePasswordGenerator();
+}
 
-// Load passwords from /api/fetch_passwords
-async function loadPasswords() {
-    const masterPassword = sessionStorage.getItem('masterPassword');
-    console.log('Debug: masterPassword from sessionStorage:', masterPassword ? 'exists' : 'missing');
-    if (!masterPassword) {
-        console.error('Debug: Master password is missing from sessionStorage');
-        showNotification('Master password missing. Please log in again.', 'error');
-        return;
-    }
-
-    try {
-        showLoading();
-        const response = await fetch('/api/fetch_passwords', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ master_password: masterPassword })
+function initializeEventListeners() {
+    const masterPasswordInput = document.getElementById('master-password-input');
+    if (masterPasswordInput) {
+        masterPasswordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                unlockVaults();
+            }
         });
-
-        const result = await response.json();
-        console.log('Debug: fetch_passwords response:', result);
-        if (response.ok) {
-            passwords = result.passwords || [];
-            console.log('Debug: loaded passwords count:', passwords.length);
-            displayPasswords(passwords);
-        } else {
-            console.error('Debug: fetch_passwords failed:', result);
-            showNotification(result.message || 'Failed to load passwords', 'error');
+    }
+    
+    const vaultSearchInput = document.getElementById('search-input');
+    if (vaultSearchInput) {
+        vaultSearchInput.addEventListener('input', debounce(filterVaults, 300));
+    }
+    
+    const passwordSearchInput = document.getElementById('password-search-input');
+    if (passwordSearchInput) {
+        passwordSearchInput.addEventListener('input', debounce(filterPasswords, 300));
+    }
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeAllModals();
         }
-    } catch (err) {
-        showNotification('Error loading passwords', 'error');
-        console.error(err);
-    } finally {
-        hideLoading();
+    });
+}
+
+function initializePasswordGenerator() {
+    const lengthSlider = document.getElementById('password-length');
+    const lengthValue = document.getElementById('length-value');
+    
+    if (lengthSlider && lengthValue) {
+        lengthSlider.addEventListener('input', function() {
+            lengthValue.textContent = this.value;
+        });
     }
 }
 
-// Save new password to /api/save_password
-async function savePassword() {
-    const masterPassword = sessionStorage.getItem('masterPassword');
-    if (!masterPassword) {
-        showNotification('Session expired. Please log in again.', 'error');
+// ===== MASTER PASSWORD & AUTHENTICATION =====
+
+function showMasterPasswordModal() {
+    const modal = document.getElementById('master-password-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('active');
+        
+        const input = document.getElementById('master-password-input');
+        if (input) {
+            setTimeout(() => input.focus(), 100);
+        }
+    }
+}
+
+function unlockVaults() {
+    const input = document.getElementById('master-password-input');
+    const errorDiv = document.getElementById('master-password-error');
+    
+    if (!input || !input.value.trim()) {
+        showError(errorDiv, 'Please enter your master password');
         return;
     }
+    
+    masterPassword = input.value.trim();
+    hideError(errorDiv);
+    showLoading(true);
+    
+    loadVaults()
+        .then(() => {
+            document.getElementById('master-password-modal').style.display = 'none';
+            document.getElementById('vault-main').style.display = 'block';
+            showLoading(false);
+        })
+        .catch((error) => {
+            console.error('Failed to load vaults:', error);
+            showError(errorDiv, 'Failed to load vaults. Please check your master password.');
+            showLoading(false);
+        });
+}
 
-    const form = document.getElementById('password-form');
-    const platform = document.getElementById('service-name').value.trim();
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
+// ===== VAULT MANAGEMENT =====
 
-    if (!platform || !password) {
-        showNotification('Service and password are required', 'error');
-        return;
-    }
-
+async function loadVaults() {
     try {
-        showLoading();
-        const response = await fetch('/api/save_password', {
+        const response = await fetch('/api/vaults', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            allVaults = data.vaults;
+            renderVaults(allVaults);
+            return Promise.resolve();
+        } else {
+            throw new Error(data.message || 'Failed to load vaults');
+        }
+    } catch (error) {
+        console.error('Error loading vaults:', error);
+        throw error;
+    }
+}
+
+function renderVaults(vaults) {
+    const vaultGrid = document.getElementById('vault-grid');
+    
+    if (!vaults || vaults.length === 0) {
+        vaultGrid.innerHTML = `
+            <div class="empty-vault">
+                <i class="fas fa-vault"></i>
+                <h3>No Vaults Yet</h3>
+                <p>Create your first vault to start organizing your passwords</p>
+                <button class="btn btn-primary" onclick="openCreateVaultModal()">
+                    <i class="fas fa-plus"></i> Create First Vault
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    vaultGrid.innerHTML = vaults.map(vault => `
+        <div class="vault-card" onclick="openVault('${vault.id}')">
+            <div class="vault-card-header">
+                <div class="vault-icon">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <div class="vault-menu">
+                    <button class="vault-menu-btn" onclick="event.stopPropagation(); deleteVault('${vault.id}')" title="Delete Vault">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="vault-card-body">
+                <h3 class="vault-name">${escapeHtml(vault.name)}</h3>
+                <p class="vault-description">${escapeHtml(vault.description || 'No description')}</p>
+                <div class="vault-stats">
+                    <span class="password-count">
+                        <i class="fas fa-key"></i> ${vault.password_count} password${vault.password_count !== 1 ? 's' : ''}
+                    </span>
+                    <span class="vault-updated">
+                        Updated ${formatDate(vault.updated_at)}
+                    </span>
+                </div>
+            </div>
+            <div class="vault-card-footer">
+                <button class="add-password-btn" onclick="event.stopPropagation(); openAddPasswordModal('${vault.id}')">
+                    <i class="fas fa-plus"></i> Add Password
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterVaults() {
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    
+    if (!searchTerm) {
+        renderVaults(allVaults);
+        return;
+    }
+    
+    const filtered = allVaults.filter(vault => 
+        vault.name.toLowerCase().includes(searchTerm) ||
+        (vault.description && vault.description.toLowerCase().includes(searchTerm))
+    );
+    
+    renderVaults(filtered);
+}
+
+function openCreateVaultModal() {
+    const modal = document.getElementById('create-vault-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('active');
+        
+        document.getElementById('vault-name').value = '';
+        document.getElementById('vault-description').value = '';
+        
+        setTimeout(() => document.getElementById('vault-name').focus(), 100);
+    }
+}
+
+function closeCreateVaultModal() {
+    const modal = document.getElementById('create-vault-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
+}
+
+async function createVault() {
+    const nameInput = document.getElementById('vault-name');
+    const descriptionInput = document.getElementById('vault-description');
+    
+    const name = nameInput.value.trim();
+    const description = descriptionInput.value.trim();
+    
+    if (!name) {
+        showNotification('Please enter a vault name', 'error');
+        nameInput.focus();
+        return;
+    }
+    
+    showLoading(true);
+    
+    try {
+        const response = await fetch('/api/vaults', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
-                platform: platform,
-                username: username,
-                password: password,
-                master_password: masterPassword
+                name: name,
+                description: description
             })
         });
-
-        const result = await response.json();
-        if (response.ok) {
-            showNotification(result.message || 'Password saved', 'success');
-            closePasswordModal();
-            loadPasswords();
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            showNotification(`Vault "${name}" created successfully!`, 'success');
+            closeCreateVaultModal();
+            await loadVaults();
         } else {
-            showNotification(result.message || 'Failed to save password', 'error');
+            showNotification(data.message || 'Failed to create vault', 'error');
         }
-    } catch (err) {
-        showNotification('Error saving password', 'error');
-        console.error(err);
+    } catch (error) {
+        console.error('Error creating vault:', error);
+        showNotification('Failed to create vault', 'error');
     } finally {
-        hideLoading();
+        showLoading(false);
     }
 }
 
-// Delete password via /api/delete_password
-async function confirmDelete() {
-    if (!currentPlatform) return;
-
+async function deleteVault(vaultId) {
+    const vault = allVaults.find(v => v.id === vaultId);
+    if (!vault) return;
+    
+    const confirmMessage = vault.password_count > 0 
+        ? `Are you sure you want to delete "${vault.name}"? This will also delete ${vault.password_count} password(s).`
+        : `Are you sure you want to delete "${vault.name}"?`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    showLoading(true);
+    
     try {
-        showLoading();
-        const response = await fetch('/api/delete_password', {
+        const response = await fetch(`/api/vaults/${vaultId}`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ platform: currentPlatform })
+            headers: {
+                'Content-Type': 'application/json',
+            }
         });
-
-        const result = await response.json();
-        if (response.ok) {
-            showNotification(result.message || 'Deleted successfully', 'success');
-            closeConfirmDeleteModal();
-            loadPasswords();
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            showNotification(`Vault "${vault.name}" deleted successfully`, 'success');
+            await loadVaults();
         } else {
-            showNotification(result.message || 'Failed to delete password', 'error');
+            showNotification(data.message || 'Failed to delete vault', 'error');
         }
-    } catch (err) {
-        showNotification('Error deleting password', 'error');
-        console.error(err);
+    } catch (error) {
+        console.error('Error deleting vault:', error);
+        showNotification('Failed to delete vault', 'error');
     } finally {
-        hideLoading();
+        showLoading(false);
     }
 }
 
-// ------------------- UI Functions -------------------
+// ===== VAULT DETAIL VIEW =====
 
-function displayPasswords(passwordList) {
-    console.log('Debug: displayPasswords called with:', passwordList);
+function showVaultGrid() {
+    document.getElementById('vault-detail').style.display = 'none';
+    document.getElementById('vault-main').style.display = 'block';
+    currentVaultId = null;
+    currentVaultPasswords = [];
+}
+
+async function openVault(vaultId) {
+    const vault = allVaults.find(v => v.id === vaultId);
+    if (!vault) return;
+    
+    currentVaultId = vaultId;
+    
+    document.getElementById('vault-detail-title').textContent = vault.name;
+    document.getElementById('vault-detail-description').textContent = vault.description || 'No description';
+    
+    document.getElementById('vault-main').style.display = 'none';
+    document.getElementById('vault-detail').style.display = 'block';
+    
+    await loadVaultPasswords(vaultId);
+}
+
+async function loadVaultPasswords(vaultId) {
+    showLoading(true);
+    
+    try {
+        const response = await fetch(`/api/vaults/${vaultId}/passwords?master_password=${encodeURIComponent(masterPassword)}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            currentVaultPasswords = data.passwords || [];
+            renderVaultPasswords(currentVaultPasswords);
+        } else {
+            showNotification(data.message || 'Failed to load passwords', 'error');
+            currentVaultPasswords = [];
+            renderVaultPasswords(currentVaultPasswords);
+        }
+    } catch (error) {
+        console.error('Error loading vault passwords:', error);
+        showNotification('Failed to load passwords', 'error');
+        currentVaultPasswords = [];
+        renderVaultPasswords(currentVaultPasswords);
+    } finally {
+        showLoading(false);
+    }
+}
+
+function renderVaultPasswords(passwords) {
     const tbody = document.getElementById('password-list');
     const table = document.querySelector('.vault-table-container');
     const empty = document.getElementById('no-passwords');
-
-    // Handle null or undefined passwordList
-    if (!passwordList || !Array.isArray(passwordList)) {
-        console.error('Debug: passwordList is null, undefined, or not an array:', passwordList);
+    
+    if (!passwords || passwords.length === 0) {
         if (table) table.style.display = 'none';
         if (empty) empty.style.display = 'block';
         return;
     }
-
-    if (!passwordList.length) {
-        console.log('Debug: passwordList is empty');
-        if (table) table.style.display = 'none';
-        if (empty) empty.style.display = 'block';
-        return;
-    }
-
+    
     if (table) table.style.display = 'block';
     if (empty) empty.style.display = 'none';
-
+    
     if (tbody) {
-        tbody.innerHTML = passwordList.map(item => {
-            // Add null safety for item properties
-            const password = item.password || '';
-            const platform = item.platform || 'Unknown';
-            const username = item.username || '';
-            
-            const maskedPassword = '•'.repeat(Math.min(password.length, 12));
-            const favicon = getFaviconForService(platform);
+        tbody.innerHTML = passwords.map(password => {
+            // Add null checks for password fields
+            const passwordText = password.password || '';
+            const platformText = password.platform || 'Unknown Service';
+            const maskedPassword = '•'.repeat(Math.min(passwordText.length, 12));
+            const favicon = getFaviconForService(platformText);
+            const safeId = platformText.replace(/[^a-zA-Z0-9]/g, '_');
             
             return `
                 <tr>
                     <td>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             ${favicon}
-                            <span>${platform}</span>
+                            <span>${escapeHtml(platformText)}</span>
                         </div>
                     </td>
-                    <td>${username || 'No username'}</td>
+                    <td>${escapeHtml(password.username || 'No username')}</td>
                     <td>
                         <div class="password-cell">
-                            <span id="password-display-${platform.replace(/[^a-zA-Z0-9]/g, '_')}" class="password-display">${maskedPassword}</span>
+                            <span id="password-display-${safeId}" class="password-display">${maskedPassword}</span>
                             <div class="password-actions">
-                                <button class="btn-icon eye-btn" onclick="togglePasswordView('${platform.replace(/'/g, "\\'")}', '${password.replace(/'/g, "\\'")}')" title="Show/Hide Password">
-                                    <i class="fas fa-eye" id="eye-${platform.replace(/[^a-zA-Z0-9]/g, '_')}"></i>
+                                <button class="btn-icon eye-btn" onclick="togglePasswordView('${platformText.replace(/'/g, "\\'")}', '${passwordText.replace(/'/g, "\\'")}', '${safeId}')" title="Show/Hide Password">
+                                    <i class="fas fa-eye" id="eye-${safeId}"></i>
                                 </button>
                             </div>
                         </div>
                     </td>
                     <td class="actions">
-                        <button class="btn-icon copy-btn" onclick="copyToClipboard('${password.replace(/'/g, "\\'")}')" title="Copy Password">
+                        <button class="btn-icon copy-btn" onclick="copyToClipboard('${passwordText.replace(/'/g, "\\'")}', 'Password copied!')" title="Copy Password">
                             <i class="fas fa-copy"></i>
                         </button>
-                        <button class="btn-icon edit-btn" onclick="editPassword('${platform.replace(/'/g, "\\'")}')" title="Edit">
+                        <button class="btn-icon edit-btn" onclick="editPassword('${platformText.replace(/'/g, "\\'")}', '${currentVaultId}')" title="Edit">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn-icon delete-btn" onclick="deletePasswordPrompt('${platform.replace(/'/g, "\\'")}')" title="Delete">
+                        <button class="btn-icon delete-btn" onclick="deletePasswordPrompt('${platformText.replace(/'/g, "\\'")}', '${currentVaultId}')" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -197,6 +403,253 @@ function displayPasswords(passwordList) {
             `;
         }).join('');
     }
+}
+
+function filterPasswords() {
+    const searchTerm = document.getElementById('password-search-input').value.toLowerCase();
+    
+    if (!searchTerm) {
+        renderVaultPasswords(currentVaultPasswords);
+        return;
+    }
+    
+    const filtered = currentVaultPasswords.filter(password => 
+        password.platform.toLowerCase().includes(searchTerm) ||
+        (password.username && password.username.toLowerCase().includes(searchTerm))
+    );
+    
+    renderVaultPasswords(filtered);
+}
+
+// ===== PASSWORD MANAGEMENT =====
+
+function openAddPasswordModal(vaultId = null) {
+    if (vaultId) {
+        currentVaultId = vaultId;
+    }
+    
+    const modal = document.getElementById('password-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('active');
+        
+        document.getElementById('password-form').reset();
+        document.getElementById('modal-title').textContent = 'Add Password';
+        
+        setTimeout(() => document.getElementById('service-name').focus(), 100);
+    }
+}
+
+function closePasswordModal() {
+    const modal = document.getElementById('password-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
+}
+
+async function savePassword() {
+    if (!currentVaultId) {
+        showNotification('No vault selected', 'error');
+        return;
+    }
+    
+    const platform = document.getElementById('service-name').value.trim();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const url = document.getElementById('url').value.trim();
+    const notes = document.getElementById('notes').value.trim();
+    
+    if (!platform || !password) {
+        showNotification('Service name and password are required', 'error');
+        return;
+    }
+    
+    showLoading(true);
+    
+    try {
+        const response = await fetch(`/api/vaults/${currentVaultId}/passwords`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                platform: platform,
+                username: username,
+                password: password,
+                url: url,
+                notes: notes,
+                master_password: masterPassword
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            showNotification(`Password for ${platform} saved successfully!`, 'success');
+            closePasswordModal();
+            
+            await loadVaultPasswords(currentVaultId);
+            await loadVaults();
+        } else {
+            showNotification(data.message || 'Failed to save password', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving password:', error);
+        showNotification('Failed to save password', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+function editPassword(platform, vaultId) {
+    const password = currentVaultPasswords.find(p => p.platform === platform);
+    if (!password) return;
+    
+    currentVaultId = vaultId;
+    
+    document.getElementById('service-name').value = password.platform;
+    document.getElementById('username').value = password.username || '';
+    document.getElementById('password').value = password.password;
+    document.getElementById('url').value = password.url || '';
+    document.getElementById('notes').value = password.notes || '';
+    
+    document.getElementById('modal-title').textContent = 'Edit Password';
+    document.getElementById('password-modal').style.display = 'flex';
+    document.getElementById('password-modal').classList.add('active');
+}
+
+function deletePasswordPrompt(platform, vaultId) {
+    currentVaultId = vaultId;
+    currentPasswordId = platform;
+    
+    document.getElementById('delete-service-name').textContent = platform;
+    document.getElementById('confirm-delete-modal').style.display = 'flex';
+    document.getElementById('confirm-delete-modal').classList.add('active');
+}
+
+function closeConfirmDeleteModal() {
+    const modal = document.getElementById('confirm-delete-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
+    currentPasswordId = null;
+}
+
+async function confirmDelete() {
+    if (!currentPasswordId || !currentVaultId) return;
+    
+    showLoading(true);
+    
+    try {
+        const response = await fetch(`/api/vaults/${currentVaultId}/passwords/${currentPasswordId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            showNotification(`Password for ${currentPasswordId} deleted successfully`, 'success');
+            closeConfirmDeleteModal();
+            
+            await loadVaultPasswords(currentVaultId);
+            await loadVaults();
+        } else {
+            showNotification(data.message || 'Failed to delete password', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting password:', error);
+        showNotification('Failed to delete password', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// ===== PASSWORD GENERATOR =====
+
+function openGeneratorModal() {
+    const modal = document.getElementById('generator-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('active');
+        generateNewPassword();
+    }
+}
+
+function closeGeneratorModal() {
+    const modal = document.getElementById('generator-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
+}
+
+function generateNewPassword() {
+    const length = parseInt(document.getElementById('password-length').value);
+    const includeUppercase = document.getElementById('include-uppercase').checked;
+    const includeLowercase = document.getElementById('include-lowercase').checked;
+    const includeNumbers = document.getElementById('include-numbers').checked;
+    const includeSymbols = document.getElementById('include-symbols').checked;
+    
+    let charset = '';
+    if (includeUppercase) charset += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (includeLowercase) charset += 'abcdefghijklmnopqrstuvwxyz';
+    if (includeNumbers) charset += '0123456789';
+    if (includeSymbols) charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
+    
+    if (!charset) {
+        showNotification('Please select at least one character type', 'error');
+        return;
+    }
+    
+    let password = '';
+    for (let i = 0; i < length; i++) {
+        password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    
+    document.getElementById('generated-password').value = password;
+}
+
+function generatePasswordForForm() {
+    generateNewPassword();
+    const generatedPassword = document.getElementById('generated-password').value;
+    if (generatedPassword) {
+        document.getElementById('password').value = generatedPassword;
+        closeGeneratorModal();
+    }
+}
+
+function copyGeneratedPassword() {
+    const passwordField = document.getElementById('generated-password');
+    if (passwordField && passwordField.value) {
+        copyToClipboard(passwordField.value, 'Generated password copied!');
+    }
+}
+
+// ===== UTILITY FUNCTIONS =====
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'Never';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+    return date.toLocaleDateString();
 }
 
 function getFaviconForService(platform) {
@@ -219,198 +672,49 @@ function getFaviconForService(platform) {
         'slack': '<i class="fab fa-slack" style="color: #4a154b;"></i>'
     };
     
-    // Check if service name matches any known icons
     for (const [service, icon] of Object.entries(iconMap)) {
         if (serviceName.includes(service)) {
             return icon;
         }
     }
     
-    // Default icon
     return '<i class="fas fa-globe" style="color: #6b7280;"></i>';
 }
 
-function viewPassword(platform) {
-    const item = passwords.find(p => p.platform === platform);
-    if (!item) return;
-
-    document.getElementById('detail-service').textContent = item.platform;
-    document.getElementById('detail-username').textContent = item.username || 'N/A';
-    document.getElementById('detail-password').value = item.password;
-    document.getElementById('detail-modal').style.display = 'flex';
-    currentPlatform = platform;
-}
-
-function editPassword(platform) {
-    const item = passwords.find(p => p.platform === platform);
-    if (!item) return;
-
-    document.getElementById('service-name').value = item.platform;
-    document.getElementById('username').value = item.username;
-    document.getElementById('password').value = item.password;
-
-    document.getElementById('modal-title').textContent = 'Edit Password';
-    document.getElementById('password-modal').style.display = 'flex';
-}
-
-function deletePasswordPrompt(platform) {
-    currentPlatform = platform;
-    document.getElementById('delete-service-name').textContent = platform;
-    document.getElementById('confirm-delete-modal').style.display = 'flex';
-}
-
-// ------------------- Helpers -------------------
-
-function initializeListeners() {
-    const addPasswordBtn = document.getElementById('add-password-btn');
-    if (addPasswordBtn) {
-        addPasswordBtn.onclick = () => {
-            document.getElementById('password-form').reset();
-            document.getElementById('modal-title').textContent = 'Add Password';
-            document.getElementById('password-modal').style.display = 'flex';
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
         };
-    }
-
-    // This element doesn't exist in the HTML, so check before accessing
-    const generatePasswordBtn = document.getElementById('generate-password-btn');
-    if (generatePasswordBtn) {
-        generatePasswordBtn.onclick = () => {
-            generatePasswordForForm();
-        };
-    }
-
-    const passwordLengthSlider = document.getElementById('password-length');
-    if (passwordLengthSlider) {
-        passwordLengthSlider.oninput = function () {
-            const lengthValue = document.getElementById('length-value');
-            if (lengthValue) {
-                lengthValue.textContent = this.value;
-            }
-        };
-    }
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
-function generatePasswordForForm() {
-    const passwordLengthEl = document.getElementById('password-length');
-    const length = parseInt(passwordLengthEl?.value || 12);
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
-    let pwd = '';
-    for (let i = 0; i < length; i++) {
-        pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    const passwordEl = document.getElementById('password');
-    const generatedPasswordEl = document.getElementById('generated-password');
-    
-    if (passwordEl) passwordEl.value = pwd;
-    if (generatedPasswordEl) generatedPasswordEl.value = pwd;
-}
-
-function copyToClipboard(text) {
+function copyToClipboard(text, successMessage = 'Copied to clipboard!') {
     navigator.clipboard.writeText(text).then(() => {
-        showNotification('Copied to clipboard', 'success');
+        showNotification(successMessage, 'success');
     }).catch(err => {
         showNotification('Failed to copy', 'error');
-        console.error(err);
+        console.error('Copy failed:', err);
     });
 }
 
-function closePasswordModal() {
-    document.getElementById('password-modal').style.display = 'none';
-}
-
-function closeConfirmDeleteModal() {
-    document.getElementById('confirm-delete-modal').style.display = 'none';
-    currentPlatform = null;
-}
-
-function showLoading() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-        overlay.style.display = 'flex';
-    }
-}
-
-function hideLoading() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-        overlay.style.display = 'none';
-    }
-}
-
-function showNotification(message, type = 'info') {
-    const container = document.createElement('div');
-    container.className = `flash-message flash-${type}`;
-    container.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()">×</button>`;
-    document.body.appendChild(container);
-    setTimeout(() => container.remove(), 4000);
-}
-
-// Additional modal functions
-function openAddPasswordModal() {
-    document.getElementById('password-form').reset();
-    document.getElementById('modal-title').textContent = 'Add Password';
-    document.getElementById('password-modal').style.display = 'flex';
-}
-
-function openGeneratorModal() {
-    document.getElementById('generator-modal').style.display = 'flex';
-    generateNewPassword();
-}
-
-function closeGeneratorModal() {
-    document.getElementById('generator-modal').style.display = 'none';
-}
-
-function closeDetailModal() {
-    document.getElementById('detail-modal').style.display = 'none';
-}
-
-function generateNewPassword() {
-    const length = parseInt(document.getElementById('password-length')?.value || 12);
-    const includeUppercase = document.getElementById('include-uppercase')?.checked;
-    const includeLowercase = document.getElementById('include-lowercase')?.checked;
-    const includeNumbers = document.getElementById('include-numbers')?.checked;
-    const includeSymbols = document.getElementById('include-symbols')?.checked;
-    const excludeChars = document.getElementById('exclude-chars')?.value || '';
+function togglePasswordView(platform, actualPassword, safeId) {
+    const passwordDisplay = document.getElementById(`password-display-${safeId}`);
+    const eyeIcon = document.getElementById(`eye-${safeId}`);
     
-    let chars = '';
-    if (includeUppercase) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    if (includeLowercase) chars += 'abcdefghijklmnopqrstuvwxyz';
-    if (includeNumbers) chars += '0123456789';
-    if (includeSymbols) chars += '!@#$%^&*()';
-    
-    // Remove excluded characters
-    for (const char of excludeChars) {
-        chars = chars.replace(new RegExp(char, 'g'), '');
-    }
-    
-    if (!chars) {
-        showNotification('Please select at least one character type', 'error');
-        return;
-    }
-    
-    let password = '';
-    for (let i = 0; i < length; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    
-    const generatedField = document.getElementById('generated-password');
-    if (generatedField) {
-        generatedField.value = password;
-    }
-}
-
-function copyGeneratedPassword() {
-    const generatedField = document.getElementById('generated-password');
-    if (generatedField && generatedField.value) {
-        copyToClipboard(generatedField.value);
-    }
-}
-
-function copyDetailPassword() {
-    const detailField = document.getElementById('detail-password');
-    if (detailField && detailField.value) {
-        copyToClipboard(detailField.value);
+    if (passwordDisplay && eyeIcon) {
+        if (eyeIcon.classList.contains('fa-eye')) {
+            passwordDisplay.textContent = actualPassword;
+            eyeIcon.className = 'fas fa-eye-slash';
+        } else {
+            const maskedPassword = '•'.repeat(Math.min(actualPassword.length, 12));
+            passwordDisplay.textContent = maskedPassword;
+            eyeIcon.className = 'fas fa-eye';
+        }
     }
 }
 
@@ -429,38 +733,53 @@ function togglePasswordVisibility(fieldId) {
     }
 }
 
-// Toggle password visibility in table rows
-function togglePasswordView(platform, actualPassword) {
-    const sanitizedPlatform = platform.replace(/[^a-zA-Z0-9]/g, '_');
-    const passwordDisplay = document.getElementById(`password-display-${sanitizedPlatform}`);
-    const eyeIcon = document.getElementById(`eye-${sanitizedPlatform}`);
+// ===== MODAL MANAGEMENT =====
+
+function closeAllModals() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    });
+}
+
+function showError(errorDiv, message) {
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        errorDiv.style.color = 'red';
+        errorDiv.style.marginTop = '10px';
+    }
+}
+
+function hideError(errorDiv) {
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
+}
+
+// ===== GLOBAL FUNCTIONS FOR BASE TEMPLATE =====
+
+function showLoading(show = true) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = show ? 'flex' : 'none';
+    }
+}
+
+function showNotification(message, type = 'info') {
+    if (typeof window.showNotification === 'function') {
+        window.showNotification(message, type);
+        return;
+    }
     
-    if (passwordDisplay && eyeIcon) {
-        if (eyeIcon.classList.contains('fa-eye')) {
-            // Show password
-            passwordDisplay.textContent = actualPassword;
-            eyeIcon.className = 'fas fa-eye-slash';
-        } else {
-            // Hide password
-            const maskedPassword = '•'.repeat(Math.min(actualPassword.length, 12));
-            passwordDisplay.textContent = maskedPassword;
-            eyeIcon.className = 'fas fa-eye';
-        }
-    }
+    const container = document.createElement('div');
+    container.className = `flash-message flash-${type}`;
+    container.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    document.body.appendChild(container);
+    setTimeout(() => container.remove(), 4000);
 }
-
-// Search functionality
-function initializeSearch() {
-    const searchInput = document.getElementById('search-input');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
-            const filteredPasswords = passwords.filter(item => 
-                item.platform.toLowerCase().includes(query) ||
-                (item.username && item.username.toLowerCase().includes(query))
-            );
-            displayPasswords(filteredPasswords);
-        });
-    }
-}
-

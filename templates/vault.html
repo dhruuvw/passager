@@ -4,17 +4,61 @@
 
 {% block content %}
 <div class="vault-container">
-    <!-- Main Content -->
-    <div class="vault-main">
+    <!-- Master Password Modal -->
+    <div class="modal" id="master-password-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔐 Enter Master Password</h3>
+            </div>
+            <div class="modal-body">
+                <p>Please enter your master password to decrypt your vaults:</p>
+                <input type="password" id="master-password-input" class="form-control" placeholder="Master Password" required>
+                <div class="master-password-error" id="master-password-error" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="unlockVaults()">Unlock Vaults</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Vault Grid View -->
+    <div class="vault-main" id="vault-main" style="display: none;">
         <div class="vault-header">
-            <h1 class="vault-title">Encrypted Vault</h1>
+            <h1 class="vault-title">🔐 Your Password Vaults</h1>
             <div class="vault-actions">
                 <div class="search-container">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="search-input" placeholder="Search passwords..." class="vault-search">
+                    <input type="text" id="search-input" placeholder="Search vaults..." class="vault-search">
                 </div>
-                <button id="add-password-btn" class="btn btn-primary" onclick="openAddPasswordModal()">
-                    <i class="fas fa-plus"></i> Add New Password
+                <button class="btn btn-primary" onclick="openCreateVaultModal()">
+                    <i class="fas fa-plus"></i> New Vault
+                </button>
+            </div>
+        </div>
+        
+        <!-- Vault Grid -->
+        <div class="vault-grid" id="vault-grid">
+            <!-- Vault cards will be dynamically generated here -->
+        </div>
+    </div>
+
+    <!-- Individual Vault Detail View -->
+    <div class="vault-detail" id="vault-detail" style="display: none;">
+        <div class="vault-detail-header">
+            <button class="btn-back" onclick="showVaultGrid()">
+                <i class="fas fa-arrow-left"></i> Back to Vaults
+            </button>
+            <div class="vault-detail-info">
+                <h1 class="vault-detail-title" id="vault-detail-title">Vault Name</h1>
+                <p class="vault-detail-description" id="vault-detail-description">Vault description</p>
+            </div>
+            <div class="vault-detail-actions">
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="password-search-input" placeholder="Search passwords..." class="vault-search">
+                </div>
+                <button class="btn btn-primary" onclick="openAddPasswordModal()">
+                    <i class="fas fa-plus"></i> Add Password
                 </button>
             </div>
         </div>
@@ -56,6 +100,32 @@
                 <h3>Military-Grade Security</h3>
                 <p>Your data is protected with AES-256-CBC encryption, PBKDF2, and end-to-end encrypted cloud storage. We never store your master password in plaintext.</p>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Vault Modal -->
+<div class="modal" id="create-vault-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>🗂️ Create New Vault</h3>
+            <button class="modal-close" onclick="closeCreateVaultModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="create-vault-form">
+                <div class="form-group">
+                    <label for="vault-name">Vault Name *</label>
+                    <input type="text" id="vault-name" name="vault_name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="vault-description">Description</label>
+                    <textarea id="vault-description" name="vault_description" class="form-control" rows="3" placeholder="Describe this vault..."></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeCreateVaultModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="createVault()">Create Vault</button>
         </div>
     </div>
 </div>
